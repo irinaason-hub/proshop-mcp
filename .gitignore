@@ -1,4 +1,6 @@
 project-map.md
-
 __pycache__/
 *.pyc
+.venv/
+proshop_mcp.egg-info/
+.claude/

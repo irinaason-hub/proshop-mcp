@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "order-server": {
+      "type": "stdio",
+      "command": "/Users/irinaason/Java/AI/AI_DD/proshop-mcp/.venv/bin/python",
+      "args": [
+        "/Users/irinaason/Java/AI/AI_DD/proshop-mcp/mcp/order_server.py"
+      ],
+      "env": {}
+    }
+  }
+}
