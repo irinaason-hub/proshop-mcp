@@ -1,0 +1,26 @@
+{
+  "ord_1": {
+    "isPaid": false,
+    "isDelivered": false,
+    "paymentMethod": null,
+    "updatedAt": "2026-08-20T10:00:00Z"
+  },
+  "ord_2": {
+    "isPaid": true,
+    "isDelivered": false,
+    "paymentMethod": "Stripe",
+    "updatedAt": "2026-08-22T14:30:00Z"
+  },
+  "ord_3": {
+    "isPaid": true,
+    "isDelivered": true,
+    "paymentMethod": "PayPal",
+    "updatedAt": "2026-08-23T12:00:00Z"
+  },
+  "ord_4": {
+    "isPaid": false,
+    "isDelivered": false,
+    "paymentMethod": "PayPal",
+    "updatedAt": "2026-08-24T08:00:00Z"
+  }
+}

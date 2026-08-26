@@ -4,9 +4,12 @@
 
 Ключевая сущность: Order, proshop_mern, backend/models/orderModel.js
 
-TODO: Стек: Python 3.10+, mcp SDK ... (версия из pyproject.toml)
+Стек: 
+- Python 3.10+
+- MCP SDK: `mcp>=1.27,<2` (линия v1 — обязательна верхняя граница, иначе PyPI поставит v2 с несовместимым API)
+- Менеджер окружения: venv + pip
 
-TODO: Хост: <Cursor / Claude Desktop / Claude Code / Warp / только Inspector>
+Хост: Claude Desktop
 
 ## Инварианты сущности
 

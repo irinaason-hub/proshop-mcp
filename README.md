@@ -1,9 +1,19 @@
 # MCP-сервер: Order
 
-**Стек:** TODO: Python 3.10+, mcp SDK ... (версия из pyproject.toml)
+**Стек:** 
+- Python 3.10+
+- MCP SDK: `mcp>=1.27,<2`
+- Менеджер окружения: venv + pip
 
-**Запуск:** TODO:   <команда запуска, та же, что в файле подключения>
+**Запуск:** 
+```
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -e .
+    python mcp/order_server.py
+```
+**Инструменты:**
+`get_order_state`, `change_order_status`, `set_payment_method`
 
-**Инструменты:** TODO: `<имя>`, `<имя>`, `<имя>`
 
-**Источник данных:** TODO: mcp/orders.json <файл или база; что нужно, чтобы сервер поднялся у проверяющего>
+**Источник данных:** `mcp/orders.json`
