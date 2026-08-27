@@ -174,6 +174,10 @@ def get_order_state(order_id: str) -> OrderState:
       paymentMethod: "PayPal" | "Stripe" | null,
       updatedAt: str (ISO 8601)
     }
+
+    Examples:
+    - get_order_state(order_id="ord_1") -> {"order_id": "ord_1", "status": "new", "isPaid": false, "isDelivered": false, "paymentMethod": null, "updatedAt": "2026-08-20T10:00:00Z"}
+    - get_order_state(order_id="ord_2") -> {"order_id": "ord_2", "status": "paid", "isPaid": true, "isDelivered": false, "paymentMethod": "Stripe", "updatedAt": "2026-08-22T14:30:00Z"}
     """
     return store.get_state(order_id)
 
@@ -199,6 +203,12 @@ def change_order_status(
       previous_status: "new" | "paid" | "delivered"
     }
     On a forbidden transition, returns an error describing which invariant blocked it instead of changing state.
+
+    Examples:
+    - Allowed: change_order_status(order_id="ord_1", target_status="paid") when status is "new" and paymentMethod="PayPal" -> {"order_id": "ord_1", "status": "paid", "isPaid": true, "isDelivered": false, "paymentMethod": "PayPal", "updatedAt": "2026-08-25T09:00:00Z", "previous_status": "new"}
+    - Forbidden: change_order_status(order_id="ord_1", target_status="delivered") when status is "new" -> error: "cannot skip paid: order must be paid before it can be delivered".
+
+    Constraint: You MUST NOT call this with target_status="paid" without first confirming paymentMethod is set (via get_order_state), and you MUST NOT attempt any transition when the order's current status is "delivered" -- it is terminal.
     """
     return store.change_status(order_id, target_status)
 
@@ -223,6 +233,12 @@ def set_payment_method(
       updatedAt: str (ISO 8601)
     }
     On a forbidden call (status != new), returns an error instead of changing state.
+
+    Examples:
+    - Allowed: set_payment_method(order_id="ord_1", payment_method="Stripe") when status is "new" -> {"order_id": "ord_1", "status": "new", "isPaid": false, "isDelivered": false, "paymentMethod": "Stripe", "updatedAt": "2026-08-25T09:05:00Z"}
+    - Forbidden: set_payment_method(order_id="ord_2", payment_method=null) when status is "paid" -> error: "cannot change paymentMethod after payment (status=paid)".
+
+    Constraint: You MUST NOT call this (to set or clear paymentMethod) on an order whose status is not "new" -- check get_order_state first if unsure.
     """
     return store.set_payment_method(order_id, payment_method)
 
