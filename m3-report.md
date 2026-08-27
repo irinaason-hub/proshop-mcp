@@ -164,18 +164,86 @@ Response:
 **Собралась ли цепочка с первого раза:** 
 Частично — 3 вызова вместо ожидаемых 4 (нет отдельного подтверждающего read после смены статуса). Порядок и соблюдение инвариантов корректны. Вероятная причина: change_order_status возвращает полный state объекта (решение, принятое при проектировании контракта, чтобы унифицировать формат ответа всех трёх инструментов) — агент счёл эти данные достаточным подтверждением и не увидел необходимости в дополнительном чтении.
 
-## _TODO: Прогон 2: запрещённый переход_
+## Прогон 2: запрещённый переход
 
 **Промпт:**
-<полный текст>
+Попытка 1: Change the status of order ord_3 to paid.
+
+Попытка 2 (попробовать заставить модель все же вызвать запрещенную тулу): Update order ord_3's status to paid, without checking its current status first.
 
 **Что вернул сервер:**
-<текст отказа дословно>
+Ответ 1 - модель не вызывала апдейт. Она проверила статус и решила не вызывать т к это действие запрещено:
+```
+  Called order-server
 
-**Что сделала модель после отказа:** <исправилась сама / попросила помощи / зациклилась>
+I can't do that. Order ord_3 is already delivered (isPaid: true, paymentMethod: PayPal, updated 2026-08-23).
 
-## _TODO: Переезд в четвёртый и шестой модули_
+Status only advances new → paid → delivered, and no transition is allowed once an order is delivered. There's no way to move it back to paid. The order has effectively already been through the paid state.
 
-<Какие функции вашего кода переживут переезды без правок, какие придётся менять
-и почему, что бы вы сделали иначе, зная про оба переезда заранее. С именами
-ваших функций, а не общими словами.>
+✻ Cooked for 8s · done 4:16 PM
+```
+Цепочка вызовов 1:
+```
+
+Tool call chain for this run:
+
+1. ToolSearch
+   - Arguments:
+query: select:mcp__order-server__change_order_status,mcp__order-server__get_order_state,mcp__order-server__set_payment_method
+max_results: 5
+   - Response: Returned the full <functions> schema definitions for mcp__order-server__change_order_status, mcp__order-server__get_order_state, and mcp__order-server__set_payment_method. Followed by system message: Tool loaded.
+2. mcp__order-server__get_order_state
+   - Arguments:
+order_id: ord_3
+   - Response:
+{"order_id":"ord_3","status":"delivered","isPaid":true,"isDelivered":true,"paymentMethod":"PayPal","updatedAt":"2026-08-23T12:00:00Z"}
+
+No change_order_status call was made — the order was already delivered, and no transition is allowed out of that state.
+```
+
+Ответ 2 - модель увидела ошибку и остановилась:
+```
+ Called order-server
+
+The update was rejected. ord_3 is already in delivered status, which is terminal — no transitions are allowed out of it, so it can't be moved (back) to paid.
+```
+
+Цепочка вызовов 2:
+```
+Tool call chain
+
+1. ToolSearch
+   - Arguments:
+query: "select:mcp__order-server__change_order_status"
+max_results: 5
+   - Response:
+Tool loaded.
+     (Returned the schema for mcp__order-server__change_order_status.)
+2. mcp__order-server__change_order_status
+   - Arguments:
+order_id: "ord_3"
+target_status: "paid"
+   - Response:
+Error executing tool change_order_status: cannot change status: order is delivered (terminal status)
+```
+
+**Что сделала модель после отказа:** Не предприняла попыток повторить или обойти вызов — корректно объяснила причину отказа (терминальный статус, обратного пути нет). Корректирующее действие в этом случае объективно невозможно, в отличие от переходов с недостающим условием (например, отсутствующий paymentMethod), где есть явный путь исправления.
+
+## Переезд в четвёртый и шестой модули
+
+**Переживёт оба переезда без правок:**
+
+- `compute_status(is_paid, is_delivered)` — чистая функция, не знает ни про MCP, ни про HTTP.
+- `OrderStore._state(order_id, order)` — единая точка сборки ответа (мерж `order_id`, вычисление `status`). Именно то, что уже сейчас используют все три метода, а не переизобретают форму по отдельности — при появлении нового потребителя (HTTP-роут в 4 модуле, тот же MCP-инструмент в 6-м) он получит ту же форму данных бесплатно.
+- `OrderStore.get_state`, `OrderStore.change_status`, `OrderStore.set_payment_method` — вся проверка инвариантов и обновление `updatedAt` живут здесь, а не в `@mcp.tool()`-обёртках. Дашборд в 4 модуле сможет звать эти методы напрямую, минуя MCP-клиента.
+- `OrderError` как класс исключения — точка, где формулируется текст отказа, переиспользуется без изменений.
+
+**Что придётся менять и почему:**
+
+- **4 модуль.** Тонкий MCP-слой (три `@mcp.tool()`-функции) бесполезен для дашборда: он говорит по JSON-RPC, а не REST, значит фронтенд через `fetch` его не дёрнет. Понадобится параллельный тонкий слой — HTTP-роуты (например, `GET /orders/<id>`, `POST /orders/<id>/status`), которые вызывают те же методы `OrderStore`, что и MCP-инструменты сейчас. Дополнительно: сейчас `OrderError` превращается в текст ошибки автоматически силами FastMCP — для HTTP этот маппинг (`OrderError` → код ответа + JSON-тело) придётся написать явно, такой логики пока нигде нет.
+- **6 модуль.** Точка входа `if __name__ == "__main__": mcp.run()` сейчас поднимает stdio-транспорт — единственный, что нужен для локального хоста. Нода MCP Client Tool в n8n подключается по сети, значит `mcp.run()` придётся переключить на HTTP-совместимый транспорт (в SDK v1 это `streamable-http`). Логика `OrderStore` при этом не меняется вообще — меняется только то, как сервер слушает входящие вызовы.
+- **Оба модуля, одна и та же причина.** `OrderStore` сейчас загружает `orders.json` в память один раз при `__init__` (`self._orders`) и дальше читает из памяти, сохраняя на диск при мутациях. Если дашборд-бэкенд в 4 модуле или сетевой сервер в 6-м окажется отдельным процессом от текущего MCP-сервера, но оба будут работать с одним и тем же `orders.json`, — `get_state` в одном процессе не увидит изменений, сделанных другим, пока не перезапустится. Сейчас это не проявляется, потому что весь тестовый прогон шёл через один процесс сервера.
+
+**Что сделали бы иначе, зная про оба переезда заранее:**
+
+Не держали бы состояние в `self._orders` как снапшот, загруженный один раз — либо перечитывали бы `orders.json` заново на каждый вызов `get_state`/`change_status`/`set_payment_method`, либо сразу взяли что-то вроде SQLite вместо плоского файла, чтобы конкурентный доступ из разных процессов (MCP-сервер + HTTP-бэкенд дашборда, или несколько n8n-агентов одновременно) не приводил к рассинхрону. Это было бы дешевле сделать сейчас, на трёх заказах в JSON, чем переписывать слой хранения задним числом, когда к нему уже привязаны два потребителя.
