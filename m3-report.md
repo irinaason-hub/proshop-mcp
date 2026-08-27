@@ -120,16 +120,49 @@
 
 ![Список инструментов в Inspector](./Screenshot.png)
 
-## _TODO: Прогон 1: тестовый сценарий_
+## Прогон 1: тестовый сценарий
 
 **Промпт:**
-<полный текст>
+```
+Check the current state of order ord_1. If it is new, set its payment method to PayPal, then mark it paid, and confirm the resulting state.
+```
 
 **Цепочка вызовов** (имена инструментов, аргументы, ответы):
-<лог целиком; длинный убирайте под спойлер, но не обрезайте>
 
-**Собралась ли цепочка с первого раза:** <да / нет; если нет, что пошло не так
-и какие формулировки в описаниях это вызвали>
+```
+1. mcp__order-server__get_order_state
+
+Arguments:
+{"order_id": "ord_1"}
+
+Response:
+{"order_id":"ord_1","status":"new","isPaid":false,"isDelivered":false,"paymentMethod":null,"updatedAt":"2026-08-20T10:00:00Z"}
+
+---
+
+2. mcp__order-server__set_payment_method
+
+Arguments:
+{"order_id": "ord_1", "payment_method": "PayPal"}
+
+Response:
+{"order_id":"ord_1","status":"new","isPaid":false,"isDelivered":false,"paymentMethod":"PayPal","updatedAt":"2026-08-27T13:52:17Z"}
+
+---
+
+3. mcp__order-server__change_order_status
+
+Arguments:
+{"order_id": "ord_1", "target_status": "paid"}
+
+Response:
+{"order_id":"ord_1","status":"paid","isPaid":true,"isDelivered":false,"paymentMethod":"PayPal","updatedAt":"2026-08-27T13:52:19Z","previous_status":"new"}
+
+✻ Cooked for 5s · done 3:54 PM
+```
+
+**Собралась ли цепочка с первого раза:** 
+Частично — 3 вызова вместо ожидаемых 4 (нет отдельного подтверждающего read после смены статуса). Порядок и соблюдение инвариантов корректны. Вероятная причина: change_order_status возвращает полный state объекта (решение, принятое при проектировании контракта, чтобы унифицировать формат ответа всех трёх инструментов) — агент счёл эти данные достаточным подтверждением и не увидел необходимости в дополнительном чтении.
 
 ## _TODO: Прогон 2: запрещённый переход_
 
@@ -140,20 +173,6 @@
 <текст отказа дословно>
 
 **Что сделала модель после отказа:** <исправилась сама / попросила помощи / зациклилась>
-
-<!-- дальше только advanced -->
-
-## _TODO: Прогон 3: токен (advanced)_
-
-**Чужой токен:** <получить токен через prepare_* для одного объекта, вызвать с ним
-confirm_* для другого; вызовы и ответ сервера>
-
-**Повторный confirm с тем же токеном:** <вызовы и ответ сервера>
-
-## _TODO: Прогон 4: prepare не меняет состояние (advanced)_
-
-**Три вызова подряд** (чтение, prepare_*, чтение):
-<лог целиком, включая отметку времени в обоих чтениях>
 
 ## _TODO: Переезд в четвёртый и шестой модули_
 
