@@ -5,3 +5,6 @@ __pycache__/
 proshop_mcp.egg-info/
 .claude/
 .idea/
+sanitize-log.py
+*.orig
+.specstory/cli/*
