@@ -21,7 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("order_server")
 
-ORDERS_FILE = Path(__file__).parent / "orders.json"
+ORDERS_FILE = Path("/Users/irinaason/Java/AI/AI_DD/proshop_mern/admin-api/orders.json")
 
 Status = Literal["new", "paid", "delivered"]
 PaymentMethod = Literal["PayPal", "Stripe"]
@@ -101,12 +101,14 @@ class OrderStore:
         }
 
     def get_state(self, order_id: str) -> OrderState:
+        self._load()
         order = self._get_raw(order_id)
         return self._state(order_id, order)
 
     def change_status(
         self, order_id: str, target_status: Literal["paid", "delivered"]
     ) -> OrderTransitionState:
+        self._load()
         order = self._get_raw(order_id)
         current = compute_status(order["isPaid"], order["isDelivered"])
 
@@ -134,6 +136,7 @@ class OrderStore:
     def set_payment_method(
         self, order_id: str, payment_method: PaymentMethod | None
     ) -> OrderState:
+        self._load()
         order = self._get_raw(order_id)
         current = compute_status(order["isPaid"], order["isDelivered"])
 
@@ -153,7 +156,7 @@ class OrderStore:
 
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
-mcp = FastMCP("order-server")
+mcp = FastMCP("order-server", host="0.0.0.0", port=8001)
 store = OrderStore(ORDERS_FILE)
 
 
@@ -244,4 +247,4 @@ def set_payment_method(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="streamable-http")
